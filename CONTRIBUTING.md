@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./assets/contributing-wirefox-banner.png" alt="Thank you for contributing to wirefox! (banner)" width="100%" />
+  # Contributing to wirefox
 </div>
-# Contributing to wirefox
 
 Thank you for your interest in contributing to **wirefox**! Whether you are fixing a bug, adding a new model provider adapter, or improving tests, your help is appreciated.
 
