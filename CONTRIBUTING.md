@@ -1,5 +1,6 @@
 <div align="center">
   <img src="./assets/contributing-wirefox-banner.png" alt="Thank you for contributing to wirefox! (banner)" width="100%" />
+  
   # Contributing to wirefox
 </div>
 
