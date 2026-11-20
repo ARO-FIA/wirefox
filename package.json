@@ -1,6 +1,6 @@
 {
   "name": "wirefox",
-  "version": "0.2.0-beta.1",
+  "version": "0.3.0-beta.1",
   "description": "A lightweight, type-safe AI agent and tool-loop micro-framework for TypeScript and JavaScript.",
   "type": "module",
   "main": "./dist/index.cjs",

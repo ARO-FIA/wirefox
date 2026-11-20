@@ -1,4 +1,4 @@
-import type { AgentConfig, AgentResult, Message, Tool } from './types.js';
+import type { AgentConfig, AgentResult, Message, ParameterSchema, ParametersRecord, Tool } from './types.js';
 
 export function createAgent(config: AgentConfig) {
   if (!config || typeof config !== 'object') {
@@ -135,19 +135,73 @@ function validateToolArguments(
     return `Invalid arguments for "${tool.name}": expected an object.`;
   }
 
-  for (const [key, schema] of Object.entries(tool.parameters)) {
-    const value = args[key];
+  return validateObjectProperties(tool.name, '', tool.parameters, args);
+}
+
+function validateObjectProperties(
+  toolName: string,
+  prefix: string,
+  properties: ParametersRecord,
+  obj: Record<string, unknown>,
+): string | null {
+  for (const [key, schema] of Object.entries(properties)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    const value = obj[key];
 
     if (value === undefined || value === null) {
       if (schema.required !== false) {
-        return `Missing required argument "${key}" for tool "${tool.name}".`;
+        return `Missing required argument "${path}" for tool "${toolName}".`;
       }
       continue;
     }
 
-    if (typeof value !== schema.type) {
-      return `Invalid type for argument "${key}" in tool "${tool.name}": expected ${schema.type}, got ${typeof value}.`;
+    const error = validateValue(toolName, path, schema, value);
+    if (error) return error;
+  }
+
+  return null;
+}
+
+function validateValue(
+  toolName: string,
+  path: string,
+  schema: ParameterSchema,
+  value: unknown,
+): string | null {
+  if (schema.type === 'array') {
+    if (!Array.isArray(value)) {
+      return `Invalid type for argument "${path}" in tool "${toolName}": expected array, got ${typeof value}.`;
     }
+
+    if (schema.items) {
+      for (let i = 0; i < value.length; i++) {
+        const itemError = validateValue(toolName, `${path}[${i}]`, schema.items, value[i]);
+        if (itemError) return itemError;
+      }
+    }
+
+    return null;
+  }
+
+  if (schema.type === 'object') {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return `Invalid type for argument "${path}" in tool "${toolName}": expected object, got ${Array.isArray(value) ? 'array' : typeof value}.`;
+    }
+
+    if (schema.properties) {
+      return validateObjectProperties(
+        toolName,
+        path,
+        schema.properties,
+        value as Record<string, unknown>,
+      );
+    }
+
+    return null;
+  }
+
+  if (typeof value !== schema.type) {
+    return `Invalid type for argument "${path}" in tool "${toolName}": expected ${schema.type}, got ${typeof value}.`;
   }
 
   return null;

@@ -62,6 +62,50 @@ describe('wirefox agent loop', () => {
     expect(result.messages).toHaveLength(4);
   });
 
+  it('infers array and nested object types in TypeScript', async () => {
+    const tagTool = defineTool({
+      name: 'tag_user',
+      description: 'Tags a user profile',
+      parameters: {
+        tags: {
+          type: 'array',
+          description: 'List of tags',
+          items: { type: 'string', description: 'Tag' },
+        },
+        profile: {
+          type: 'object',
+          description: 'User profile',
+          properties: {
+            username: { type: 'string', description: 'Handle' },
+            active: { type: 'boolean', description: 'Active flag', required: false },
+          },
+        },
+      },
+      execute: ({ tags, profile }) => `${profile.username}:${tags.length}`,
+    });
+
+    const mockModel: ModelAdapter = {
+      generate: vi
+        .fn()
+        .mockResolvedValueOnce({
+          content: '',
+          toolCalls: [
+            {
+              id: 'call_ts_nested',
+              name: 'tag_user',
+              arguments: { tags: ['alpha', 'beta'], profile: { username: 'aro' } },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({ content: 'Tagged!' }),
+    };
+
+    const fox = createAgent({ model: mockModel, tools: [tagTool] });
+    const result = await fox.run('Tag aro');
+
+    expect(result.output).toBe('Tagged!');
+  });
+
   it('invokes onToolCall and onStep lifecycle hooks in order', async () => {
     const events: string[] = [];
 

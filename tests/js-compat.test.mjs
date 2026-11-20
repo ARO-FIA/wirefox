@@ -14,7 +14,7 @@ describe('plain JavaScript parity', () => {
         },
         execute: () => {},
       }),
-    ).toThrow('Parameter "count" in tool "bad_param" must have type "string", "number", or "boolean".');
+    ).toThrow('Parameter "count" in tool "bad_param" must have type "string", "number", "boolean", "array", or "object".');
 
     expect(() =>
       defineTool({
@@ -62,5 +62,62 @@ describe('plain JavaScript parity', () => {
     expect(result.output).toBe('3 multiplied by 4 is 12.');
     expect(result.steps).toBe(3);
     expect(result.messages.at(2)?.content).toContain('expected number, got string');
+  });
+
+  it('validates nested array and object tool arguments at runtime', async () => {
+    const createOrder = defineTool({
+      name: 'create_order',
+      description: 'Create an order with items and customer details',
+      parameters: {
+        tags: {
+          type: 'array',
+          description: 'Order tags',
+          items: { type: 'string', description: 'Tag name' },
+        },
+        customer: {
+          type: 'object',
+          description: 'Customer info',
+          properties: {
+            name: { type: 'string', description: 'Customer name' },
+            vip: { type: 'boolean', description: 'VIP status', required: false },
+          },
+        },
+      },
+      execute: ({ tags, customer }) => `${customer.name} (${tags.join(', ')})`,
+    });
+
+    const mockModel = {
+      generate: vi
+        .fn()
+        .mockResolvedValueOnce({
+          content: '',
+          toolCalls: [
+            {
+              id: 'call_bad_nested',
+              name: 'create_order',
+              arguments: { tags: ['urgent', 123], customer: { name: 'Aro' } },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          content: '',
+          toolCalls: [
+            {
+              id: 'call_ok_nested',
+              name: 'create_order',
+              arguments: { tags: ['urgent'], customer: { name: 'Aro' } },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          content: 'Order created for Aro.',
+        }),
+    };
+
+    const fox = createAgent({ model: mockModel, tools: [createOrder] });
+    const result = await fox.run('Create an order');
+
+    expect(result.output).toBe('Order created for Aro.');
+    expect(result.messages.at(2)?.content).toContain('tags');
   });
 });

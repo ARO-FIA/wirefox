@@ -1,9 +1,11 @@
-export type ParameterType = 'string' | 'number' | 'boolean';
+export type ParameterType = 'string' | 'number' | 'boolean' | 'array' | 'object';
 
 export interface ParameterSchema {
   type: ParameterType;
   description: string;
   required?: boolean;
+  items?: ParameterSchema;
+  properties?: ParametersRecord;
 }
 
 export type ParametersRecord = Record<string, ParameterSchema>;
@@ -12,6 +14,8 @@ type InferParamType<T extends ParameterSchema> =
   T['type'] extends 'string' ? string :
   T['type'] extends 'number' ? number :
   T['type'] extends 'boolean' ? boolean :
+  T['type'] extends 'array' ? (T['items'] extends ParameterSchema ? InferParamType<T['items']>[] : unknown[]) :
+  T['type'] extends 'object' ? (T['properties'] extends ParametersRecord ? InferArgs<T['properties']> : Record<string, unknown>) :
   unknown;
 
 /**
