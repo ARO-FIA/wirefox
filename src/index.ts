@@ -12,6 +12,8 @@ export type {
   Message,
   ModelResponse,
   ModelAdapter,
+  StepEvent,
+  ToolCallEvent,
   AgentConfig,
   AgentResult,
 } from './types.js';

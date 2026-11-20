@@ -60,11 +60,24 @@ export interface ModelAdapter {
   }) => Promise<ModelResponse>;
 }
 
+export interface StepEvent {
+  step: number;
+  messages: Message[];
+}
+
+export interface ToolCallEvent {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
 export interface AgentConfig {
   model: ModelAdapter;
   tools?: Tool<any, any>[];
   systemPrompt?: string;
   maxSteps?: number;
+  onStep?: (event: StepEvent) => void | Promise<void>;
+  onToolCall?: (event: ToolCallEvent) => void | Promise<void>;
 }
 
 export interface AgentResult {

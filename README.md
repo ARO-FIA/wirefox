@@ -3,9 +3,9 @@
 
   # wirefox
 
-  Zero-dependency AI agent and tool-loop micro-framework for TypeScript.
+  Zero-dependency AI agent and tool-loop micro-framework for TypeScript and JavaScript.
 
-  [![npm](https://shields.io)](https://npmjs.com/package/wirefox)
+  [![npm](https://shields.io)](https://www.npmjs.com/package/wirefox)
   [![license](https://shields.io)](./LICENSE)
 </div>
 
@@ -16,6 +16,8 @@ npm install wirefox
 ```
 
 ## Quickstart
+
+Works identically in `.ts` and plain `.js` with full runtime validation and editor autocomplete:
 
 ```typescript
 import { createAgent, defineTool, openai } from 'wirefox';

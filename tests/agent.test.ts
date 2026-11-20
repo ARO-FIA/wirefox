@@ -62,6 +62,54 @@ describe('wirefox agent loop', () => {
     expect(result.messages).toHaveLength(4);
   });
 
+  it('invokes onToolCall and onStep lifecycle hooks in order', async () => {
+    const events: string[] = [];
+
+    const echoTool = defineTool({
+      name: 'echo',
+      description: 'Echoes text',
+      parameters: {
+        text: { type: 'string', description: 'Text to echo' },
+      },
+      execute: ({ text }) => {
+        events.push(`execute:${text}`);
+        return text;
+      },
+    });
+
+    const mockModel: ModelAdapter = {
+      generate: vi
+        .fn()
+        .mockResolvedValueOnce({
+          content: '',
+          toolCalls: [{ id: 'call_1', name: 'echo', arguments: { text: 'hello' } }],
+        })
+        .mockResolvedValueOnce({
+          content: 'Done!',
+        }),
+    };
+
+    const fox = createAgent({
+      model: mockModel,
+      tools: [echoTool],
+      onToolCall: ({ name, arguments: args }) => {
+        events.push(`onToolCall:${name}:${String(args['text'])}`);
+      },
+      onStep: ({ step }) => {
+        events.push(`onStep:${step}`);
+      },
+    });
+
+    await fox.run('Test hooks');
+
+    expect(events).toEqual([
+      'onToolCall:echo:hello',
+      'execute:hello',
+      'onStep:1',
+      'onStep:2',
+    ]);
+  });
+
   it('catches tool execution errors and passes them gracefully to the model', async () => {
     const failingTool = defineTool({
       name: 'broken_tool',
@@ -92,7 +140,7 @@ describe('wirefox agent loop', () => {
     const result = await fox.run('Run broken tool');
 
     expect(result.output).toBe('Sorry, the database is currently offline.');
-    expect(result.messages[2]?.content).toContain('Database offline');
+    expect(result.messages.at(2)?.content).toContain('Database offline');
   });
 
   it('throws when the agent exceeds maxSteps', async () => {
