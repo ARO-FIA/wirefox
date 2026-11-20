@@ -5,8 +5,9 @@
 
   Zero-dependency AI agent and tool-loop micro-framework for TypeScript and JavaScript.
 
-  [![npm](https://shields.io)](https://www.npmjs.com/package/wirefox)
-  [![license](https://shields.io)](./LICENSE)
+  [![npm](https://img.shields.io/npm/v/wirefox/beta?style=for-the-badge)](https://www.npmjs.com/package/wirefox)
+  [![releases](https://img.shields.io/github/v/release/ARO-FIA/wirefox?include_prereleases&style=for-the-badge)](https://github.com/ARO-FIA/wirefox/releases)
+  [![license](https://img.shields.io/badge/license-MIT-blue.svg?style=for-the-badge)](./LICENSE)
 </div>
 
 ## Install
