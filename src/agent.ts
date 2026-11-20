@@ -1,5 +1,12 @@
 import type { Agent, AgentConfig, AgentResult, Message, ParameterSchema, ParametersRecord, Tool } from './types.js';
 
+/**
+ * Creates an agent that repeatedly calls the model, executes requested tools, and feeds results back
+ * until the model returns a final answer or the step limit is reached.
+ *
+ * @param config Model adapter, optional tools, system prompt, step limit, and lifecycle hooks.
+ * @returns An agent whose `run` method resolves the final output and full message history.
+ */
 export function createAgent(config: AgentConfig): Agent {
   if (!config || typeof config !== 'object') {
     throw new TypeError('createAgent requires a configuration object.');

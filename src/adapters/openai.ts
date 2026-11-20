@@ -1,12 +1,24 @@
 import type { Message, ModelAdapter, ModelResponse, ParameterSchema, ParametersRecord, Tool, ToolCall } from '../types.js';
 
+/** Configuration for the OpenAI-compatible chat completions adapter. */
 export interface OpenAIAdapterConfig {
+  /** Model identifier such as `"gpt-4o-mini"` or `"llama3.2"`. */
   model: string;
+  /** API key sent as a bearer token. Omit for local servers that need no authentication. */
   apiKey?: string;
+  /** Base URL for the API. Defaults to `https://openai.com`; override for Ollama, Groq, or other compatible hosts. */
   baseURL?: string;
+  /** Custom fetch implementation, mainly for testing or non-standard runtimes. */
   fetch?: typeof globalThis.fetch;
 }
 
+/**
+ * Creates a model adapter that calls an OpenAI-compatible `/chat/completions` endpoint and
+ * normalizes the response, including any tool calls, into a `ModelResponse`.
+ *
+ * @param config Model name plus optional API key, base URL, and fetch implementation.
+ * @returns A `ModelAdapter` usable with `createAgent`.
+ */
 export function openai(config: OpenAIAdapterConfig): ModelAdapter {
   const baseURL = (config.baseURL ?? 'https://openai.com').replace(/\/$/, '');
   const fetchFn = config.fetch ?? globalThis.fetch;

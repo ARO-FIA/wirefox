@@ -2,6 +2,13 @@ import type { ParameterSchema, ParametersRecord, Tool } from './types.js';
 
 const VALID_PARAM_TYPES = new Set(['string', 'number', 'boolean', 'array', 'object']);
 
+/**
+ * Validates a tool definition, including its parameter schema, and returns it unchanged.
+ * Throws a `TypeError` when the name, description, parameters, or execute function are invalid.
+ *
+ * @param definition The tool definition to validate.
+ * @returns The same validated tool definition.
+ */
 export function defineTool<TParams extends ParametersRecord, TResult = unknown>(
   definition: Tool<TParams, TResult>,
 ): Tool<TParams, TResult> {
