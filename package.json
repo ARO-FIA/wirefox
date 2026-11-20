@@ -1,6 +1,6 @@
 {
   "name": "wirefox",
-  "version": "0.2.0-beta.0",
+  "version": "0.2.0-beta.1",
   "description": "A lightweight, type-safe AI agent and tool-loop micro-framework for TypeScript and JavaScript.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -31,7 +31,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com"
+    "url": "https://github.com/ARO-FIA-wirefox"
   },
   "license": "MIT",
   "devDependencies": {
