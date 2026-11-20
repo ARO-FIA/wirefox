@@ -1,6 +1,6 @@
-import type { AgentConfig, AgentResult, Message, ParameterSchema, ParametersRecord, Tool } from './types.js';
+import type { Agent, AgentConfig, AgentResult, Message, ParameterSchema, ParametersRecord, Tool } from './types.js';
 
-export function createAgent(config: AgentConfig) {
+export function createAgent(config: AgentConfig): Agent {
   if (!config || typeof config !== 'object') {
     throw new TypeError('createAgent requires a configuration object.');
   }

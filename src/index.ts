@@ -14,6 +14,7 @@ export type {
   ModelAdapter,
   StepEvent,
   ToolCallEvent,
+  Agent,
   AgentConfig,
   AgentResult,
 } from './types.js';

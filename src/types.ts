@@ -75,6 +75,10 @@ export interface ToolCallEvent {
   arguments: Record<string, unknown>;
 }
 
+export interface Agent {
+  run: (prompt: string) => Promise<AgentResult>;
+}
+
 export interface AgentConfig {
   model: ModelAdapter;
   tools?: Tool<any, any>[];
