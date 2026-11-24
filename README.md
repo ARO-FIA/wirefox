@@ -31,20 +31,39 @@ const weatherTool = defineTool({
   description: 'Get the current weather for a city',
   parameters: {
     city: { type: 'string', description: 'City name, e.g. Johannesburg' },
+    units: {
+      type: 'string',
+      description: 'Units for the temperature, either celsius or fahrenheit',
+      required: false,
+    },
   },
-  execute: async ({ city }) => ({ city, temp: 24, condition: 'Sunny' }),
+  execute: async ({ city, units }) => ({
+    city,
+    units: units ?? 'celsius',
+    temp: 24,
+    condition: 'Sunny',
+  }),
 });
 
 const fox = createAgent({
   model: openai({
     model: 'gpt-4o-mini',
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: process.env.OPENAI_API_KEY ?? '',
   }),
   tools: [weatherTool],
+  systemPrompt: 'You are a concise weather assistant. Always call a tool before answering.',
+  maxSteps: 5,
+  onToolCall: (event) => {
+    console.log(`Calling ${event.name}`, event.arguments);
+  },
+  onStep: (event) => {
+    console.log(`Step ${event.step} finished with ${event.messages.length} messages`);
+  },
 });
 
 const result = await fox.run('What is the weather in Sandton right now?');
 console.log(result.output);
+console.log(`Took ${result.steps} model calls`);
 ```
 
 ## Local & OpenAI-Compatible Models
