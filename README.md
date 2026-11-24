@@ -8,7 +8,7 @@
   [![npm](https://img.shields.io/npm/v/wirefox?style=for-the-badge)](https://www.npmjs.com/package/wirefox)
   [![releases](https://img.shields.io/github/v/release/ARO-FIA/wirefox?include_prereleases&style=for-the-badge)](https://github.com/ARO-FIA/wirefox/releases)
   [![license](https://img.shields.io/badge/license-MIT-blue.svg?style=for-the-badge)](./LICENSE)
-  [![JSR](https://img.shields.io/badge/JSR-0.3.1-F7DF1E?style=for-the-badge&logo=jsr&logoColor=F7DF1E&labelColor=121212)](https://jsr.io/@aro-fia/wirefox)
+  [![JSR](https://img.shields.io/badge/JSR-0.3.2-F7DF1E?style=for-the-badge&logo=jsr&logoColor=F7DF1E&labelColor=121212)](https://jsr.io/@aro-fia/wirefox)
 [![JSR Score](https://img.shields.io/badge/JSR_Score-100%25-brightgreen?style=for-the-badge&logo=jsr&logoColor=F7DF1E&labelColor=121212)](https://jsr.io/@aro-fia/wirefox/score)
 
 </div>

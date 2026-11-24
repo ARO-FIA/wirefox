@@ -56,6 +56,11 @@ export interface ToolCall {
   name: string;
   /** Arguments supplied by the model. */
   arguments: Record<string, unknown>;
+  /**
+   * Set by adapters when the provider sent arguments that could not be parsed.
+   * The agent reports this error back to the model instead of running the tool.
+   */
+  argumentError?: string;
 }
 
 /** A single message in the conversation sent to the model. */

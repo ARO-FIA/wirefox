@@ -23,11 +23,30 @@ export function createAgent(config: AgentConfig): Agent {
   if (config.onToolCall !== undefined && typeof config.onToolCall !== 'function') {
     throw new TypeError('"onToolCall" must be a function.');
   }
+  if (config.tools !== undefined && !Array.isArray(config.tools)) {
+    throw new TypeError('"tools" must be an array of tool definitions.');
+  }
 
   const maxSteps = config.maxSteps ?? 10;
   const toolMap = new Map<string, Tool<any, any>>();
 
   for (const tool of config.tools ?? []) {
+    if (!tool || typeof tool !== 'object') {
+      throw new TypeError('Each tool passed to createAgent must be a tool definition object.');
+    }
+    if (typeof tool.name !== 'string' || !tool.name.trim()) {
+      throw new TypeError('Each tool passed to createAgent must have a non-empty "name".');
+    }
+    if (!tool.parameters || typeof tool.parameters !== 'object' || Array.isArray(tool.parameters)) {
+      throw new TypeError(`Tool "${tool.name}" passed to createAgent must have a "parameters" object.`);
+    }
+    if (typeof tool.execute !== 'function') {
+      throw new TypeError(`Tool "${tool.name}" passed to createAgent must provide an "execute" function.`);
+    }
+    if (toolMap.has(tool.name)) {
+      throw new TypeError(`Duplicate tool name "${tool.name}" passed to createAgent.`);
+    }
+
     toolMap.set(tool.name, tool);
   }
 
@@ -88,6 +107,15 @@ export function createAgent(config: AgentConfig): Agent {
             role: 'tool',
             toolCallId: call.id,
             content: JSON.stringify({ error: `Tool "${call.name}" is not registered.` }),
+          });
+          continue;
+        }
+
+        if (call.argumentError) {
+          messages.push({
+            role: 'tool',
+            toolCallId: call.id,
+            content: JSON.stringify({ error: call.argumentError }),
           });
           continue;
         }

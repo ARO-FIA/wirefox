@@ -6,10 +6,33 @@ export interface OpenAIAdapterConfig {
   model: string;
   /** API key sent as a bearer token. Omit for local servers that need no authentication. */
   apiKey?: string;
-  /** Base URL for the API. Defaults to `https://openai.com`; override for Ollama, Groq, or other compatible hosts. */
+  /** Base URL for the API. Defaults to `https://api.openai.com/v1`; override for Ollama, Groq, or other compatible hosts. */
   baseURL?: string;
   /** Custom fetch implementation, mainly for testing or non-standard runtimes. */
   fetch?: typeof globalThis.fetch;
+}
+
+const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
+
+interface ChatCompletionChoice {
+  index?: number;
+  message?: {
+    content?: string | null;
+    tool_calls?: RawToolCall[];
+  };
+  finish_reason?: string | null;
+}
+
+interface RawToolCall {
+  id?: string;
+  function?: {
+    name?: string;
+    arguments?: string;
+  };
+}
+
+interface ChatCompletionBody {
+  choices?: ChatCompletionChoice[];
 }
 
 /**
@@ -20,7 +43,7 @@ export interface OpenAIAdapterConfig {
  * @returns A `ModelAdapter` usable with `createAgent`.
  */
 export function openai(config: OpenAIAdapterConfig): ModelAdapter {
-  const baseURL = (config.baseURL ?? 'https://openai.com').replace(/\/$/, '');
+  const baseURL = (config.baseURL ?? DEFAULT_BASE_URL).replace(/\/$/, '');
   const fetchFn = config.fetch ?? globalThis.fetch;
 
   return {
@@ -48,43 +71,95 @@ export function openai(config: OpenAIAdapterConfig): ModelAdapter {
         body: JSON.stringify(body),
       });
 
+      const rawBody = await response.text();
+
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`OpenAI API error (${response.status}): ${errorText}`);
+        const status = response.statusText
+          ? `${response.status} ${response.statusText}`
+          : String(response.status);
+        throw new Error(`OpenAI API error (${status}): ${rawBody}`);
       }
 
-      const data = (await response.json()) as {
-        choices?: Array<{
-          message?: {
-            content?: string | null;
-            tool_calls?: Array<{
-              id: string;
-              function: {
-                name: string;
-                arguments: string;
-              };
-            }>;
-          };
-        }>;
-      };
+      let data: ChatCompletionBody | null;
 
-      const choice = data.choices?.at(0)?.message;
-      if (!choice) {
-        throw new Error('OpenAI API returned an empty response.');
+      try {
+        data = JSON.parse(rawBody) as ChatCompletionBody;
+      } catch {
+        throw new Error(`OpenAI API returned a malformed JSON body: ${rawBody.slice(0, 200)}`);
       }
 
-      const toolCalls: ToolCall[] | undefined = choice.tool_calls?.map((tc) => ({
-        id: tc.id,
-        name: tc.function.name,
-        arguments: JSON.parse(tc.function.arguments || '{}') as Record<string, unknown>,
-      }));
+      const choices = Array.isArray(data?.choices) ? data.choices : [];
+      const choice = choices.find((entry) => entry?.index === 0) ?? choices[0];
+
+      if (!choice?.message) {
+        throw new Error('OpenAI API returned no choices.');
+      }
+
+      if (choice.finish_reason === 'length') {
+        throw new Error(
+          'OpenAI API response was truncated because the model hit its token limit (finish_reason: length).',
+        );
+      }
+
+      if (choice.finish_reason === 'content_filter') {
+        throw new Error(
+          'OpenAI API response was blocked by the content filter (finish_reason: content_filter).',
+        );
+      }
+
+      const toolCalls = parseToolCalls(choice.message.tool_calls);
 
       return {
-        content: choice.content ?? '',
+        content: typeof choice.message.content === 'string' ? choice.message.content : '',
         ...(toolCalls ? { toolCalls } : {}),
       };
     },
   };
+}
+
+function parseToolCalls(raw: RawToolCall[] | undefined): ToolCall[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return undefined;
+  }
+
+  return raw.map((call, index) => {
+    const name = call?.function?.name;
+
+    if (typeof name !== 'string' || !name) {
+      throw new Error('OpenAI API returned a tool call without a function name.');
+    }
+
+    const id = typeof call.id === 'string' && call.id ? call.id : `call_${index}`;
+    const argsText = call.function?.arguments;
+
+    if (typeof argsText !== 'string' || argsText.trim() === '') {
+      return { id, name, arguments: {} };
+    }
+
+    let parsed: unknown;
+
+    try {
+      parsed = JSON.parse(argsText);
+    } catch (err) {
+      return {
+        id,
+        name,
+        arguments: {},
+        argumentError: `Malformed JSON arguments for tool "${name}": ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return {
+        id,
+        name,
+        arguments: {},
+        argumentError: `Malformed JSON arguments for tool "${name}": expected a JSON object.`,
+      };
+    }
+
+    return { id, name, arguments: parsed as Record<string, unknown> };
+  });
 }
 
 function formatMessage(msg: Message): Record<string, unknown> {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createAgent, defineTool, openai } from '../src/index.js';
-import type { ModelAdapter } from '../src/index.js';
+import type { Message, ModelAdapter } from '../src/index.js';
 
 describe('wirefox agent loop', () => {
   it('returns direct model output when no tools are called', async () => {
@@ -280,5 +280,170 @@ describe('openai adapter', () => {
 
     expect(result.output).toBe('The sum is 5.');
     expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('openai adapter edge cases', () => {
+  const messages: Message[] = [{ role: 'user', content: 'Hello' }];
+
+  function adapter(fetch: typeof globalThis.fetch): ModelAdapter {
+    return openai({ model: 'gpt-4o-mini', apiKey: 'test-key', fetch });
+  }
+
+  it('defaults to the OpenAI API base URL', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ choices: [{ message: { content: 'Hi' } }] }), { status: 200 }),
+    );
+
+    await adapter(mockFetch).generate({ messages, tools: [] });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.openai.com/v1/chat/completions',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('reports malformed tool arguments to the model instead of rejecting the run', async () => {
+    const echoTool = defineTool({
+      name: 'echo',
+      description: 'Echoes text',
+      parameters: { text: { type: 'string', description: 'Text to echo' } },
+      execute: ({ text }) => text,
+    });
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: null,
+                  tool_calls: [
+                    {
+                      id: 'call_bad',
+                      type: 'function',
+                      function: { name: 'echo', arguments: '{"text":' },
+                    },
+                  ],
+                },
+                finish_reason: 'tool_calls',
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ choices: [{ message: { content: 'Recovered.' } }] }), {
+          status: 200,
+        }),
+      );
+
+    const fox = createAgent({ model: adapter(mockFetch), tools: [echoTool] });
+    const result = await fox.run('Echo something');
+
+    expect(result.output).toBe('Recovered.');
+    expect(result.messages.at(2)?.content).toContain('Malformed JSON arguments for tool');
+  });
+
+  it('throws a descriptive error for non-2xx responses', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response('rate limited', { status: 429, statusText: 'Too Many Requests' }));
+
+    await expect(adapter(mockFetch).generate({ messages, tools: [] })).rejects.toThrow(
+      'OpenAI API error (429 Too Many Requests): rate limited',
+    );
+  });
+
+  it('throws when the response body is not JSON', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response('<html>oops</html>', { status: 200 }));
+
+    await expect(adapter(mockFetch).generate({ messages, tools: [] })).rejects.toThrow(
+      'OpenAI API returned a malformed JSON body',
+    );
+  });
+
+  it('throws when the response has no choices', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ choices: [] }), { status: 200 }));
+
+    await expect(adapter(mockFetch).generate({ messages, tools: [] })).rejects.toThrow(
+      'OpenAI API returned no choices.',
+    );
+  });
+
+  it('throws when the response was truncated or blocked', async () => {
+    const truncated = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: 'Half a sen' }, finish_reason: 'length' }],
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await expect(adapter(truncated).generate({ messages, tools: [] })).rejects.toThrow(
+      'finish_reason: length',
+    );
+
+    const filtered = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: '' }, finish_reason: 'content_filter' }],
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await expect(adapter(filtered).generate({ messages, tools: [] })).rejects.toThrow(
+      'finish_reason: content_filter',
+    );
+  });
+
+  it('uses the first choice when multiple choices are returned', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            { index: 1, message: { content: 'Second' } },
+            { index: 0, message: { content: 'First' } },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const response = await adapter(mockFetch).generate({ messages, tools: [] });
+
+    expect(response.content).toBe('First');
+  });
+});
+
+describe('createAgent tool validation', () => {
+  const model: ModelAdapter = { generate: vi.fn() };
+
+  it('rejects duplicate tool names', () => {
+    const echoTool = defineTool({
+      name: 'echo',
+      description: 'Echoes text',
+      parameters: { text: { type: 'string', description: 'Text to echo' } },
+      execute: ({ text }) => text,
+    });
+
+    expect(() => createAgent({ model, tools: [echoTool, echoTool] })).toThrow(
+      'Duplicate tool name "echo" passed to createAgent.',
+    );
+  });
+
+  it('rejects raw tool objects without an execute function', () => {
+    const rawTool = { name: 'raw', description: 'No execute', parameters: {} };
+
+    expect(() => createAgent({ model, tools: [rawTool as never] })).toThrow(
+      'Tool "raw" passed to createAgent must provide an "execute" function.',
+    );
   });
 });
