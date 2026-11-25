@@ -48,7 +48,7 @@ const weatherTool = defineTool({
 const fox = createAgent({
   model: openai({
     model: 'gpt-4o-mini',
-    apiKey: process.env.OPENAI_API_KEY ?? '',
+    apiKey: process.env.API_KEY ?? '',
   }),
   tools: [weatherTool],
   systemPrompt: 'You are a concise weather assistant. Always call a tool before answering.',
