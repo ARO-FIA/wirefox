@@ -21,7 +21,13 @@ npm install wirefox
 
 ## Quickstart
 
-Works identically in `.ts` and plain `.js` with full runtime validation and editor autocomplete:
+Before using this code, please not if you are using `.ts` or `.tsx` you will need a `package.json` with
+```json
+{
+  "type": "module"
+}
+```
+inside it. File extensions that should work without package.json are the following: `.mts`, `.mjs`, `.js`, `.jsx`, `.cts`, and `.cjs`
 
 ```typescript
 import { createAgent, defineTool, openai } from 'wirefox';
