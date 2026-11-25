@@ -34,18 +34,6 @@ Before writing code, please keep these three rules in mind:
    npm run build
    ```
 
-## Project Structure
-
-```text
-src/
-├── adapters/      # Provider adapters (e.g., openai.ts)
-├── agent.ts       
-├── index.ts       
-├── tool.ts        
-└── types.ts       
-tests/             
-```
-
 ## Good First Contributions
 
 * **New Provider Adapters:** Add zero-dependency `fetch`-based adapters in `src/adapters/` (such as Anthropic or Google Gemini) implementing the `ModelAdapter` interface.
