@@ -8,11 +8,49 @@ export interface OpenAIAdapterConfig {
   apiKey?: string;
   /** Base URL for the API. Defaults to `https://api.openai.com/v1`; override for Ollama, Groq, or other compatible hosts. */
   baseURL?: string;
+  baseUrl?: string;
   /** Custom fetch implementation, mainly for testing or non-standard runtimes. */
   fetch?: typeof globalThis.fetch;
 }
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
+
+const KNOWN_API_ROOTS: { host: RegExp; path: string }[] = [
+  { host: /(^|\.)groq\.com$/i, path: '/openai/v1' },
+  { host: /(^|\.)openrouter\.ai$/i, path: '/api/v1' },
+];
+
+function resolveChatCompletionsUrl(rawBaseUrl: string): string {
+  const candidate = rawBaseUrl.trim().replace(/\/+$/, '');
+
+  if (candidate.endsWith('/chat/completions')) {
+    return candidate;
+  }
+
+  let url: URL;
+
+  try {
+    url = new URL(candidate);
+  } catch {
+    throw new Error(
+      `Invalid base URL "${rawBaseUrl}". Pass an absolute URL such as "https://api.openai.com/v1", "https://api.groq.com/openai/v1", or "http://localhost:11434/v1".`,
+    );
+  }
+
+  const path = url.pathname.replace(/\/+$/, '');
+  const known = KNOWN_API_ROOTS.find((entry) => entry.host.test(url.hostname));
+
+  if (known) {
+    url.pathname =
+      path.endsWith(known.path) || known.path.startsWith(`${path}/`) ? known.path : `${path}${known.path}`;
+  } else if (path === '') {
+    url.pathname = '/v1';
+  } else {
+    url.pathname = path;
+  }
+
+  return `${url.toString().replace(/\/$/, '')}/chat/completions`;
+}
 
 interface ChatCompletionChoice {
   index?: number;
@@ -43,7 +81,9 @@ interface ChatCompletionBody {
  * @returns A `ModelAdapter` usable with `createAgent`.
  */
 export function openai(config: OpenAIAdapterConfig): ModelAdapter {
-  const baseURL = (config.baseURL ?? DEFAULT_BASE_URL).replace(/\/$/, '');
+  const endpoint = resolveChatCompletionsUrl(
+    config.baseURL?.trim() || config.baseUrl?.trim() || DEFAULT_BASE_URL,
+  );
   const fetchFn = config.fetch ?? globalThis.fetch;
 
   return {
@@ -65,7 +105,7 @@ export function openai(config: OpenAIAdapterConfig): ModelAdapter {
         body['tools'] = tools.map(formatTool);
       }
 
-      const response = await fetchFn(`${baseURL}/chat/completions`, {
+      const response = await fetchFn(endpoint, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
@@ -77,7 +117,11 @@ export function openai(config: OpenAIAdapterConfig): ModelAdapter {
         const status = response.statusText
           ? `${response.status} ${response.statusText}`
           : String(response.status);
-        throw new Error(`OpenAI API error (${status}): ${rawBody}`);
+        const hint =
+          response.status === 404 || response.status === 405
+            ? ` The endpoint ${endpoint} rejected the request; check that the base URL points at an OpenAI-compatible API root, for example https://api.groq.com/openai/v1.`
+            : '';
+        throw new Error(`OpenAI API error (${status}): ${rawBody}${hint}`);
       }
 
       let data: ChatCompletionBody | null;

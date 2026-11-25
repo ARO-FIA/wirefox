@@ -423,6 +423,67 @@ describe('openai adapter edge cases', () => {
   });
 });
 
+describe('openai adapter base URL handling', () => {
+  const messages: Message[] = [{ role: 'user', content: 'Hello' }];
+
+  async function endpointFor(config: { baseURL?: string; baseUrl?: string }): Promise<string> {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ choices: [{ message: { content: 'Hi' } }] }), { status: 200 }),
+    );
+
+    const model = openai({
+      model: 'gpt-4o-mini',
+      fetch: mockFetch,
+      ...config,
+    });
+
+    await model.generate({ messages, tools: [] });
+
+    const [url] = mockFetch.mock.calls[0] as unknown as [string];
+    return url;
+  }
+
+  it('defaults to the OpenAI chat completions endpoint', async () => {
+    expect(await endpointFor({})).toBe('https://api.openai.com/v1/chat/completions');
+  });
+
+  it('accepts baseUrl as an alias for baseURL', async () => {
+    expect(await endpointFor({ baseUrl: 'https://api.groq.com/openai/v1' })).toBe(
+      'https://api.groq.com/openai/v1/chat/completions',
+    );
+  });
+
+  it('resolves a Groq root to its OpenAI-compatible path', async () => {
+    expect(await endpointFor({ baseURL: 'https://api.groq.com' })).toBe(
+      'https://api.groq.com/openai/v1/chat/completions',
+    );
+  });
+
+  it('resolves an OpenRouter root to its versioned API path', async () => {
+    expect(await endpointFor({ baseURL: 'https://openrouter.ai' })).toBe(
+      'https://openrouter.ai/api/v1/chat/completions',
+    );
+  });
+
+  it('resolves an Ollama root to its v1 endpoint', async () => {
+    expect(await endpointFor({ baseURL: 'http://localhost:11434' })).toBe(
+      'http://localhost:11434/v1/chat/completions',
+    );
+  });
+
+  it('resolves an LM Studio root to its v1 endpoint', async () => {
+    expect(await endpointFor({ baseURL: 'http://localhost:1234/v1' })).toBe(
+      'http://localhost:1234/v1/chat/completions',
+    );
+  });
+
+  it('does not append the path twice when given a full chat completions URL', async () => {
+    expect(await endpointFor({ baseURL: 'https://api.groq.com/openai/v1/chat/completions' })).toBe(
+      'https://api.groq.com/openai/v1/chat/completions',
+    );
+  });
+});
+
 describe('createAgent tool validation', () => {
   const model: ModelAdapter = { generate: vi.fn() };
 
